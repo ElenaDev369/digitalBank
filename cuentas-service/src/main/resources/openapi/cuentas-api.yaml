@@ -1,0 +1,217 @@
+openapi: 3.0.3
+info:
+  title: API de Cuentas
+  description: Gestión de cuentas bancarias del banco digital.
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080
+    description: Entorno local
+tags:
+  - name: Cuentas
+    description: Apertura, consulta y movimientos de cuentas
+
+paths:
+  /api/v1/cuentas:
+    post:
+      tags: [Cuentas]
+      operationId: crearCuenta
+      summary: Abre una nueva cuenta
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CrearCuentaRequest'
+      responses:
+        '201':
+          description: Cuenta creada
+          headers:
+            Location:
+              description: URL de la cuenta creada
+              schema:
+                type: string
+                format: uri
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cuenta'
+        '400':
+          $ref: '#/components/responses/SolicitudInvalida'
+
+  /api/v1/cuentas/{cuentaId}:
+    get:
+      tags: [Cuentas]
+      operationId: consultarCuenta
+      summary: Consulta una cuenta por su identificador
+      parameters:
+        - $ref: '#/components/parameters/CuentaId'
+      responses:
+        '200':
+          description: Cuenta encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cuenta'
+        '404':
+          $ref: '#/components/responses/NoEncontrada'
+
+    delete:
+      tags: [ Cuentas ]
+      operationId: cerrarCuenta
+      summary: Cierra una cuenta por su identificador
+      parameters:
+        - $ref: '#/components/parameters/CuentaId'
+      responses:
+        '204':
+          description: Cuenta cerrada
+        '404':
+          $ref: '#/components/responses/NoEncontrada'
+        '422':
+          $ref: '#/components/responses/ReglaDeNegocio'
+
+  /api/v1/cuentas/{cuentaId}/depositos:
+    post:
+      tags: [Cuentas]
+      operationId: depositar
+      summary: Ingresa dinero en la cuenta
+      parameters:
+        - $ref: '#/components/parameters/CuentaId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MovimientoRequest'
+      responses:
+        '200':
+          description: Depósito realizado; devuelve la cuenta actualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cuenta'
+        '400':
+          $ref: '#/components/responses/SolicitudInvalida'
+        '404':
+          $ref: '#/components/responses/NoEncontrada'
+
+  /api/v1/cuentas/{cuentaId}/retiros:
+    post:
+      tags: [Cuentas]
+      operationId: retirar
+      summary: Retira dinero de la cuenta
+      parameters:
+        - $ref: '#/components/parameters/CuentaId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MovimientoRequest'
+      responses:
+        '200':
+          description: Retiro realizado; devuelve la cuenta actualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cuenta'
+        '400':
+          $ref: '#/components/responses/SolicitudInvalida'
+        '404':
+          $ref: '#/components/responses/NoEncontrada'
+        '422':
+          $ref: '#/components/responses/ReglaDeNegocio'
+
+components:
+  parameters:
+    CuentaId:
+      name: cuentaId
+      in: path
+      required: true
+      description: Identificador único de la cuenta
+      schema:
+        type: string
+        format: uuid
+
+  schemas:
+    CrearCuentaRequest:
+      type: object
+      required: [titular]
+      properties:
+        titular:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: Ana García
+        moneda:
+          type: string
+          pattern: '^[A-Z]{3}$'
+          default: EUR
+          example: EUR
+
+    MovimientoRequest:
+      type: object
+      required: [importe]
+      properties:
+        importe:
+          type: number
+          minimum: 0
+          exclusiveMinimum: true
+          multipleOf: 0.01
+          example: 150.50
+
+    Cuenta:
+      type: object
+      required: [id, titular, saldo, moneda]
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        titular:
+          type: string
+          example: Ana García
+        saldo:
+          type: number
+          multipleOf: 0.01
+          example: 1250.75
+        moneda:
+          type: string
+          example: EUR
+
+    Problema:
+      type: object
+      description: Error en formato Problem Details (RFC 9457)
+      required: [title, status]
+      properties:
+        type:
+          type: string
+          example: about:blank
+        title:
+          type: string
+          example: Saldo insuficiente
+        status:
+          type: integer
+          example: 422
+        detail:
+          type: string
+          example: La cuenta no tiene saldo suficiente para el retiro.
+
+  responses:
+    SolicitudInvalida:
+      description: Los datos enviados no son válidos
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problema'
+    NoEncontrada:
+      description: La cuenta no existe
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problema'
+    ReglaDeNegocio:
+      description: La operación incumple una regla de negocio (por ejemplo, saldo insuficiente)
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problema'
