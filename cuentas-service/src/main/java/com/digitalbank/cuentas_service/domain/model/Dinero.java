@@ -31,7 +31,15 @@ public record Dinero(BigDecimal importe, Currency moneda) {
 
     public boolean esMayorQue(Dinero otro) {
         exigirMismaMoneda(otro);
-        return this.importe.compareTo(otro.importe) >0;
+        return this.importe.compareTo(otro.importe) > 0;
+    }
+
+    public boolean esPositivo() {
+        return this.importe.signum() > 0;
+    }
+
+    public boolean esCero() {
+        return this.importe.signum() == 0;
     }
 
     private void exigirMismaMoneda(Dinero otro) {
